@@ -2,6 +2,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_restful import Api, Resource
+import sqlite3
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins='*')
@@ -68,6 +69,41 @@ def say_hello():
     </html>
     """
     return html_content
+
+
+DATABASE = "events.db"
+
+
+def get_events():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM events")
+    rows = cursor.fetchall()
+
+    events = []
+
+    for row in rows:
+        event = {
+            "title": row["name"],
+            "start": f"{row['event_date']}T{row['event_time']}",
+            "location": row["location"],
+            "flyer": row["flyer"],
+            "writeup": row["writeup"],
+            "registration": row["registration_link"]
+        }
+
+        events.append(event)
+
+    conn.close()
+
+    return events
+
+
+@app.route("/api/events")
+def events():
+    return jsonify(get_events())
 
 if __name__ == '__main__':
     app.run(port=5001)
