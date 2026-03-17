@@ -8,6 +8,11 @@ from model.titanic import TitanicModel
 titanic_api = Blueprint('titanic_api', __name__, url_prefix='/api/titanic')
 api = Api(titanic_api)
 
+@titanic_api.route("/importance")
+def titanic_importance():
+    model = TitanicModel.get_instance()
+    return jsonify(model.feature_weights())
+
 # Create endpoint
 class Predict(Resource):
     def post(self):
