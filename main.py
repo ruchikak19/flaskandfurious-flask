@@ -8,6 +8,7 @@ from flask_login import current_user, login_required
 from flask import current_app
 from dotenv import load_dotenv
 
+
 # import "objects" from "this" project
 from __init__ import app, db, login_manager  # Key Flask objects 
 # API endpoints
@@ -305,9 +306,11 @@ def update_user(uid):
         print("User not found.")  # Log when user is not found
         return jsonify({"message": "User not found."}), 404
 
+from titanic_api import titanic_api  
+app.register_blueprint(titanic_api)
+from model.titanic import initTitanic
+initTitanic()
 
-
-    
 # Create an AppGroup for custom commands
 custom_cli = AppGroup('custom', help='Custom commands')
 
