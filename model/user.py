@@ -171,7 +171,7 @@ class User(db.Model, UserMixin):
     personas = db.relationship('Persona', secondary='user_personas', lazy='subquery',
                                overlaps="user_personas_rel,persona,users")
     
-   def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_server_needed=False, role="User", pfp='', grade_data=None, ap_exam=None, school="Unknown", sid=None, classes=None, phone=None):
+def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_server_needed=False, role="User", pfp='', grade_data=None, ap_exam=None, school="Unknown", sid=None, classes=None, phone=None):
     self._name = name
     self._uid = uid
     self._email = "?"
@@ -186,12 +186,12 @@ class User(db.Model, UserMixin):
     self._class = classes if classes is not None else []
     self._school = school
     @property
-def phone(self):
-    return self._phone
+    def phone(self):
+        return self._phone
 
-@phone.setter
-def phone(self, phone):
-    self._phone = phone
+    @phone.setter
+    def phone(self, phone):
+        self._phone = phone
 
     # UserMixin/Flask-Login requires a get_id method to return the id as a string
     def get_id(self):
