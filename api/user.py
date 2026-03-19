@@ -68,7 +68,7 @@ class UserAPI:
             
             return jsonify(results) 
             
-    def post(self):
+def post(self):
     body = request.get_json()
 
     # Validate name
