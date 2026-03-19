@@ -63,6 +63,7 @@ app.config['USER_PASSWORD'] = os.environ.get('USER_PASSWORD') or os.environ.get(
 app.config['USER_PFP'] = os.environ.get('USER_PFP') or 'default.png'
 # Defaults
 app.config['DEFAULT_PASSWORD'] = os.environ.get('DEFAULT_PASSWORD') or 'password'
+app.config['ADMIN_SIGNUP_SECRET'] = os.environ.get('ADMIN_SIGNUP_SECRET', 'admin123')
 app.config['DEFAULT_PFP'] = os.environ.get('DEFAULT_PFP') or 'default.png'
 # Convenience user
 app.config['MY_NAME'] = os.environ.get('MY_NAME') or 'convenience'

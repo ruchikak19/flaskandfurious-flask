@@ -68,98 +68,49 @@ class UserAPI:
             
             return jsonify(results) 
             
-    class _CRUD(Resource):  # Users API operation for Create, Read, Update, Delete 
-        def post(self): # Create method
-            """
-            Create a new user.
+    def post(self):
+    body = request.get_json()
 
-            Reads data from the JSON body of the request, validates the input, and creates a new user in the database.
+    # Validate name
+    name = body.get('name')
+    if name is None or len(name) < 2:
+        return {'message': 'Name is missing, or is less than 2 characters'}, 400
 
-            Returns:
-                JSON response with the created user details or an error message.
-            """
-            
-            # Read data for json body
-            body = request.get_json()
-            
-            # Debug logging
-            #print(f"Received signup request with body: {body}")
-            
-            ''' Avoid garbage in, error checking '''
-            # validate name
-            name = body.get('name')
-            if name is None or len(name) < 2:
-                return {'message': f'Name is missing, or is less than 2 characters'}, 400
-            
-            # validate uid
-            uid = body.get('uid')
-            if uid is None or len(uid) < 2:
-                return {'message': f'User ID is missing, or is less than 2 characters'}, 400
-          
-            # check if uid is a GitHub account
-            _, status = GitHubUser().get(uid)
-            if status != 200:
-                return {'message': f'User ID {uid} not a valid GitHub account' }, 404
-            
-            ''' User object creation '''
-            #1: Setup minimal User object using __init__ method
-            password = body.get('password')
-            if password is not None:
-                if len(password) < 8 and not password.startswith("pbkdf2:sha256:"):
-                    return {'message': 'Password must be at least 8 characters'}, 400
-                user_obj = User(name=name, uid=uid, password=password)
-            else:
-                user_obj = User(name=name, uid=uid)
-            
-            # Handle additional fields that frontend sends
-            # Create a cleaned body with only the fields User model expects
-            cleaned_body = {
-                'name': name,
-                'uid': uid,
-                'password': password,
-                'email': body.get('email'),
-            }
-            
-            # Add optional fields if they exist
-            if body.get('sid'):
-                cleaned_body['sid'] = body.get('sid')
-            if body.get('school'):
-                cleaned_body['school'] = body.get('school')
-            if body.get('kasm_server_needed') is not None:
-                cleaned_body['kasm_server_needed'] = body.get('kasm_server_needed')
-            # Support assigning classes (e.g. ["CSSE","CSP","CSA"]).
-            # Accept either a list or a single string.
-            if body.get('class') is not None:
-                cleaned_body['class'] = body.get('class')
-            
-            # Remove None values
-            cleaned_body = {k: v for k, v in cleaned_body.items() if v is not None}
-            
-            # print(f"Cleaned body for user creation: {cleaned_body}")
+    # Validate uid
+    uid = body.get('uid')
+    if uid is None or len(uid) < 2:
+        return {'message': 'User ID is missing, or is less than 2 characters'}, 400
 
-            #2: Save the User object to the database using custom create method
-            try:
-                user = user_obj.create(cleaned_body) # pass the cleaned body elements to be saved in the database
-                #print(f"Create method returned: {user}")
-                #print(f"User type: {type(user)}")
-                
-                if not user:
-                    # Check if user was actually created in database despite create() returning None
-                    db_user = User.query.filter_by(_uid=uid).first()
-                    if db_user:
-                        #print(f"User exists in DB but create returned None: {db_user.uid}")
-                        return jsonify(db_user.read())  # Return the user anyway
-                    else:
-                        return {'message': f'Processed {name}, either a format error or User ID {uid} is duplicate'}, 400
-                
-                #print(f"Successfully created user: {user.uid}")
-                # return response, the created user details as a JSON object
-                return jsonify(user.read())
-                
-            except Exception as e:
-                #print(f"Error creating user: {e}")
-                return {'message': f'Error creating user: {str(e)}'}, 500
+    # Validate password
+    password = body.get('password')
+    if password is None or len(password) < 8:
+        return {'message': 'Password must be at least 8 characters'}, 400
 
+    # Check for duplicate uid
+    if User.query.filter_by(_uid=uid).first():
+        return {'message': f'User ID {uid} already exists'}, 400
+
+    # Determine role: if signup password matches admin secret, grant Admin
+    admin_secret = current_app.config.get('ADMIN_SIGNUP_SECRET', 'supersecretadmin')
+    role = "Admin" if body.get('admin_secret') == admin_secret else "User"
+
+    # Build user
+    user_obj = User(
+        name=name,
+        uid=uid,
+        password=password,
+        role=role,
+        phone=body.get('phone'),
+    )
+    user_obj._email = body.get('email', '?') or '?'
+
+    try:
+        user = user_obj.create({})
+        if not user:
+            return {'message': f'Failed to create user {uid}'}, 400
+        return jsonify(user.read())
+    except Exception as e:
+        return {'message': f'Error creating user: {str(e)}'}, 500
         @token_required()
         def get(self):
             """
