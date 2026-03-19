@@ -66,58 +66,61 @@ class UserAPI:
                                 results['errors'].append({'message': f'Failed to add sections {abbreviations} to user {uid}'})
                                 
             
-            return jsonify(results) 
-            
-def post(self):
-    body = request.get_json()
+            return jsonify(results)
 
-    # Validate name
-    name = body.get('name')
-    if name is None or len(name) < 2:
-        return {'message': 'Name is missing, or is less than 2 characters'}, 400
+    class _CRUD(Resource):
+        @token_required()
+        def post(self):
+            body = request.get_json()
 
-    # Validate uid
-    uid = body.get('uid')
-    if uid is None or len(uid) < 2:
-        return {'message': 'User ID is missing, or is less than 2 characters'}, 400
+            # Validate name
+            name = body.get('name')
+            if name is None or len(name) < 2:
+                return {'message': 'Name is missing, or is less than 2 characters'}, 400
 
-    # Validate password
-    password = body.get('password')
-    if password is None or len(password) < 8:
-        return {'message': 'Password must be at least 8 characters'}, 400
+            # Validate uid
+            uid = body.get('uid')
+            if uid is None or len(uid) < 2:
+                return {'message': 'User ID is missing, or is less than 2 characters'}, 400
 
-    # Check for duplicate uid
-    if User.query.filter_by(_uid=uid).first():
-        return {'message': f'User ID {uid} already exists'}, 400
+            # Validate password
+            password = body.get('password')
+            if password is None or len(password) < 8:
+                return {'message': 'Password must be at least 8 characters'}, 400
 
-    # Determine role: if signup password matches admin secret, grant Admin
-    admin_secret = current_app.config.get('ADMIN_SIGNUP_SECRET', 'supersecretadmin')
-    role = "Admin" if body.get('admin_secret') == admin_secret else "User"
+            # Check for duplicate uid
+            if User.query.filter_by(_uid=uid).first():
+                return {'message': f'User ID {uid} already exists'}, 400
 
-    # Build user
-    user_obj = User(
-        name=name,
-        uid=uid,
-        password=password,
-        role=role,
-        phone=body.get('phone'),
-    )
-    user_obj._email = body.get('email', '?') or '?'
+            # Determine role: if signup password matches admin secret, grant Admin
+            admin_secret = current_app.config.get('ADMIN_SIGNUP_SECRET', 'supersecretadmin')
+            role = "Admin" if body.get('admin_secret') == admin_secret else "User"
 
-    try:
-        user = user_obj.create({})
-        if not user:
-            return {'message': f'Failed to create user {uid}'}, 400
-        return jsonify(user.read())
-    except Exception as e:
-        return {'message': f'Error creating user: {str(e)}'}, 500
+            # Build user
+            user_obj = User(
+                name=name,
+                uid=uid,
+                password=password,
+                role=role,
+                phone=body.get('phone'),
+            )
+            user_obj._email = body.get('email', '?') or '?'
+
+            try:
+                user = user_obj.create({})
+                if not user:
+                    return {'message': f'Failed to create user {uid}'}, 400
+                return jsonify(user.read())
+            except Exception as e:
+                return {'message': f'Error creating user: {str(e)}'}, 500
+
         @token_required()
         def get(self):
             """
             Retrieve all users.
 
             Retrieves a list of all users in the database.
-            
+
             Query Parameters:
                 page (int): Page number for pagination (starts at 1)
                 per_page (int): Number of users per page (default: 50, max: 200)
@@ -125,13 +128,13 @@ def post(self):
             Returns:
                 JSON response with a list of user dictionaries.
             """
-            # retrieve the current user from the token_required authentication check  
+            # retrieve the current user from the token_required authentication check
             current_user = g.current_user
-            
+
             # Get query parameters for pagination
             page = request.args.get('page', type=int)
             per_page = min(request.args.get('per_page', 50, type=int), 200)
-            
+
             """ User SQLAlchemy query returning list of all users """
             if page:
                 # Paginated query
@@ -145,18 +148,18 @@ def post(self):
                 has_next = False
                 has_prev = False
                 total = len(users)
-             
+
             # prepare a json list of user dictionaries
-            json_ready = []  
+            json_ready = []
             for user in users:
                 user_data = user.read()
                 # Add access control
                 if current_user.role == 'Admin' or current_user.id == user.id:
-                    user_data['access'] = ['rw'] # read-write access control 
+                    user_data['access'] = ['rw'] # read-write access control
                 else:
-                    user_data['access'] = ['ro'] # read-only access control 
+                    user_data['access'] = ['ro'] # read-only access control
                 json_ready.append(user_data)
-            
+
             # return response, a list of user dictionaries in JSON format
             if page:
                 return jsonify({
@@ -171,7 +174,7 @@ def post(self):
                 })
             else:
                 return jsonify(json_ready)
-        
+
         @token_required()
         def put(self):
             """
@@ -182,7 +185,7 @@ def post(self):
             Returns:
                 JSON response with the updated user details or an error message.
             """
-            
+
             # Retrieve the current user from the token_required authentication check
             current_user = g.current_user
             # Read data from the JSON body of the request
@@ -193,7 +196,7 @@ def post(self):
                 uid = body.get('uid')
                 # Admin is updating themself
                 if uid is None or uid == current_user.uid:
-                    user = current_user 
+                    user = current_user
                 else: # Admin is updating another user
                     """ User SQLAlchemy query returning a single user """
                     user = User.query.filter_by(_uid=uid).first()
@@ -202,19 +205,19 @@ def post(self):
             else:
                 # Non-admin can only update themselves
                 user = current_user
-                
-            # Accounts are desired to be GitHub accounts, change must be validated 
+
+            # Accounts are desired to be GitHub accounts, change must be validated
             if body.get('uid') and body.get('uid') != user._uid:
                 _, status = GitHubUser().get(body.get('uid'))
                 if status != 200:
                     return {'message': f'User ID {body.get("uid")} not a valid GitHub account' }, 404
-            
+
             # Update the User object to the database using custom update method
             user.update(body)
-            
+
             # return response, the updated user details as a JSON object
             return jsonify(user.read())
-        
+
         @token_required("Admin")
         def delete(self):
             """
@@ -227,21 +230,21 @@ def post(self):
             """
             body = request.get_json()
             uid = body.get('uid')
-            
+
             """ User SQLAlchemy query returning a single user """
             user = User.query.filter_by(_uid=uid).first()
-            
+
             # bad request
             if user is None:
                 return {'message': f'User {uid} not found'}, 404
-           
+
             # Read and then Delete the User object using custom methods
             user_json = user.read()
             user.delete()
-            
+
             # 204 is the status code for delete with no json response
             return f"Deleted user: {user_json}", 204 # use 200 to test with Postman
-         
+
     class _Section(Resource):  # Section API operation
         @token_required()
         def get(self):
