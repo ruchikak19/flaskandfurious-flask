@@ -149,7 +149,6 @@ class User(db.Model, UserMixin):
     _uid = db.Column(db.String(255), unique=True, nullable=False)
     _email = db.Column(db.String(255), unique=False, nullable=True)
     _sid = db.Column(db.String(255), unique=False, nullable=True)
-    _phone = db.Column(db.String(50), unique=False, nullable=True)
     _password = db.Column(db.String(255), unique=False, nullable=False)
     _role = db.Column(db.String(20), default="User", nullable=False)
     _pfp = db.Column(db.String(255), unique=False, nullable=True)
@@ -171,12 +170,11 @@ class User(db.Model, UserMixin):
     personas = db.relationship('Persona', secondary='user_personas', lazy='subquery',
                                overlaps="user_personas_rel,persona,users")
     
-def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_server_needed=False, role="User", pfp='', grade_data=None, ap_exam=None, school="Unknown", sid=None, classes=None, phone=None):
+def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_server_needed=False, role="User", pfp='', grade_data=None, ap_exam=None, school="Unknown", sid=None, classes=None):
     self._name = name
     self._uid = uid
     self._email = "?"
     self._sid = sid
-    self._phone = phone
     self.set_password(password)
     self.kasm_server_needed = kasm_server_needed
     self._role = role
@@ -185,13 +183,7 @@ def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_serv
     self._ap_exam = ap_exam if ap_exam else {}
     self._class = classes if classes is not None else []
     self._school = school
-    @property
-    def phone(self):
-        return self._phone
 
-    @phone.setter
-    def phone(self, phone):
-        self._phone = phone
 
     # UserMixin/Flask-Login requires a get_id method to return the id as a string
     def get_id(self):
@@ -378,7 +370,6 @@ def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_serv
             "ap_exam": self.ap_exam,
             "password": self._password,  # Only for internal use, not for API
             "school": self.school,
-            "phone": self._phone
         }
         sections = self.read_sections()
         data.update(sections)
@@ -386,7 +377,7 @@ def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_serv
         data.update(personas)
         return data
         
-    # CRUD update: updates user name, password, phone
+    # CRUD update: updates user name, password, 
     # returns self
     def update(self, inputs):
         if not isinstance(inputs, dict):
@@ -403,7 +394,6 @@ def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_serv
         ap_exam = inputs.get("ap_exam", None)
         class_list = inputs.get("class", None) or inputs.get("_class", None)
         school = inputs.get("school", None)
-        phone = inputs.get("phone", None)
         # States before update
         old_uid = self.uid
         old_kasm_server_needed = self.kasm_server_needed
