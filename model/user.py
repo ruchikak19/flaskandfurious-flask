@@ -170,19 +170,19 @@ class User(db.Model, UserMixin):
     personas = db.relationship('Persona', secondary='user_personas', lazy='subquery',
                                overlaps="user_personas_rel,persona,users")
     
-def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_server_needed=False, role="User", pfp='', grade_data=None, ap_exam=None, school="Unknown", sid=None, classes=None):
-    self._name = name
-    self._uid = uid
-    self._email = "?"
-    self._sid = sid
-    self.set_password(password)
-    self.kasm_server_needed = kasm_server_needed
-    self._role = role
-    self._pfp = pfp
-    self._grade_data = grade_data if grade_data else {}
-    self._ap_exam = ap_exam if ap_exam else {}
-    self._class = classes if classes is not None else []
-    self._school = school
+    def __init__(self, name, uid, password=app.config["DEFAULT_PASSWORD"], kasm_server_needed=False, role="User", pfp='', grade_data=None, ap_exam=None, school="Unknown", sid=None, classes=None):
+        self._name = name
+        self._uid = uid
+        self._email = "?"
+        self._sid = sid
+        self.set_password(password)
+        self.kasm_server_needed = kasm_server_needed
+        self._role = role
+        self._pfp = pfp
+        self._grade_data = grade_data if grade_data else {}
+        self._ap_exam = ap_exam if ap_exam else {}
+        self._class = classes if classes is not None else []
+        self._school = school
 
 
     # UserMixin/Flask-Login requires a get_id method to return the id as a string
