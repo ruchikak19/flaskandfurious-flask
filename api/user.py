@@ -102,7 +102,6 @@ class UserAPI:
                 uid=uid,
                 password=password,
                 role=role,
-                phone=body.get('phone'),
             )
             user_obj._email = body.get('email', '?') or '?'
 
