@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_restful import Api, Resource
 import sqlite3
+import os
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins='*')
@@ -46,7 +47,6 @@ class DataAPI(Resource):
         return jsonify(info_model.read())
 
     def post(self):
-        # Add a new entry to InfoDb
         entry = request.get_json()
         if not entry:
             return {"error": "No data provided"}, 400
@@ -55,7 +55,6 @@ class DataAPI(Resource):
 
 api.add_resource(DataAPI, '/api/data')
 
-# Wee can use @app.route for HTML endpoints, this will be style for Admin UI
 @app.route('/')
 def say_hello():
     html_content = """
@@ -74,16 +73,42 @@ def say_hello():
 DATABASE = "events.db"
 
 
-def get_events():
+def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    return conn
 
+
+def init_blog_db():
+    """Create the blog_posts table if it doesn't exist."""
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS blog_posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT,
+            title TEXT NOT NULL,
+            author TEXT,
+            date TEXT,
+            read_time TEXT,
+            body TEXT,
+            image BLOB,
+            image_type TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# Initialize blog table on startup
+init_blog_db()
+
+
+def get_events():
+    conn = get_db()
+    cursor = conn.cursor()
     cursor.execute("SELECT * FROM events")
     rows = cursor.fetchall()
-
     events = []
-
     for row in rows:
         event = {
             "title": row["name"],
@@ -93,11 +118,8 @@ def get_events():
             "writeup": row["writeup"],
             "registration": row["registration_link"]
         }
-
         events.append(event)
-
     conn.close()
-
     return events
 
 
@@ -105,5 +127,143 @@ def get_events():
 def events():
     return jsonify(get_events())
 
+
+# ── BLOG API ──────────────────────────────────────────────
+
+@app.route("/api/blog", methods=["GET"])
+def get_blog_posts():
+    """Return all blog posts (without image binary)."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, category, title, author, date, read_time, body, image_type, created_at
+        FROM blog_posts
+        ORDER BY created_at DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    posts = []
+    for row in rows:
+        post = dict(row)
+        # Build image URL if image exists
+        post["image_url"] = f"/api/blog/{row['id']}/image" if row["image_type"] else None
+        posts.append(post)
+    return jsonify(posts)
+
+
+@app.route("/api/blog/<int:post_id>", methods=["GET"])
+def get_blog_post(post_id):
+    """Return a single blog post by ID."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, category, title, author, date, read_time, body, image_type, created_at
+        FROM blog_posts WHERE id = ?
+    """, (post_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return {"error": "Post not found"}, 404
+    post = dict(row)
+    post["image_url"] = f"/api/blog/{post_id}/image" if row["image_type"] else None
+    return jsonify(post)
+
+
+@app.route("/api/blog/<int:post_id>/image", methods=["GET"])
+def get_blog_image(post_id):
+    """Serve the image for a blog post."""
+    from flask import Response
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT image, image_type FROM blog_posts WHERE id = ?", (post_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row or not row["image"]:
+        return {"error": "Image not found"}, 404
+    return Response(row["image"], mimetype=row["image_type"])
+
+
+@app.route("/api/blog", methods=["POST"])
+def create_blog_post():
+    """Create a new blog post. Accepts multipart/form-data so image can be uploaded."""
+    from flask import request
+    category  = request.form.get("category", "")
+    title     = request.form.get("title", "")
+    author    = request.form.get("author", "")
+    date      = request.form.get("date", "")
+    read_time = request.form.get("read_time", "")
+    body      = request.form.get("body", "")
+
+    image_data = None
+    image_type = None
+    if "image" in request.files:
+        f = request.files["image"]
+        image_data = f.read()
+        image_type = f.mimetype
+
+    if not title:
+        return {"error": "Title is required"}, 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO blog_posts (category, title, author, date, read_time, body, image, image_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (category, title, author, date, read_time, body, image_data, image_type))
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+
+    return jsonify({"message": "Post created", "id": new_id}), 201
+
+
+@app.route("/api/blog/<int:post_id>", methods=["PUT"])
+def update_blog_post(post_id):
+    """Update an existing blog post."""
+    category  = request.form.get("category")
+    title     = request.form.get("title")
+    author    = request.form.get("author")
+    date      = request.form.get("date")
+    read_time = request.form.get("read_time")
+    body      = request.form.get("body")
+
+    image_data = None
+    image_type = None
+    if "image" in request.files:
+        f = request.files["image"]
+        image_data = f.read()
+        image_type = f.mimetype
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if image_data:
+        cursor.execute("""
+            UPDATE blog_posts
+            SET category=?, title=?, author=?, date=?, read_time=?, body=?, image=?, image_type=?
+            WHERE id=?
+        """, (category, title, author, date, read_time, body, image_data, image_type, post_id))
+    else:
+        cursor.execute("""
+            UPDATE blog_posts
+            SET category=?, title=?, author=?, date=?, read_time=?, body=?
+            WHERE id=?
+        """, (category, title, author, date, read_time, body, post_id))
+
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Post updated"}), 200
+
+
+@app.route("/api/blog/<int:post_id>", methods=["DELETE"])
+def delete_blog_post(post_id):
+    """Delete a blog post."""
+    conn = get_db()
+    conn.execute("DELETE FROM blog_posts WHERE id = ?", (post_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Post deleted"}), 200
+
+
 if __name__ == '__main__':
-    app.run(port=5001)
+    app.run(port=8421)
