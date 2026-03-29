@@ -8,6 +8,32 @@ from flask_login import current_user, login_required
 from flask import current_app
 from dotenv import load_dotenv
 
+import sqlite3
+
+DATABASE = "events.db"
+
+def get_events():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM events")
+    rows = cursor.fetchall()
+
+    events = []
+
+    for row in rows:
+        events.append({
+            "title": row["name"],
+            "start": f"{row['event_date']}T{row['event_time']}",
+            "location": row["location"],
+            "flyer": row["flyer"],
+            "writeup": row["writeup"],
+            "registration": row["registration_link"]
+        })
+
+    conn.close()
+    return events
 
 # import "objects" from "this" project
 from __init__ import app, db, login_manager  # Key Flask objects 
@@ -324,7 +350,11 @@ def generate_data():
 
 # Register the custom command group with the Flask application
 app.cli.add_command(custom_cli)
-        
+
+@app.route("/api/events")
+def events():
+    return jsonify(get_events())
+
 # this runs the flask application on the development server
 if __name__ == "__main__":
     # change name for testing
