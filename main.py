@@ -1,5 +1,6 @@
 # imports from flask
 from datetime import datetime
+from fileinput import filename
 from urllib.parse import urljoin, urlparse
 from flask import abort, redirect, render_template, request, send_from_directory, url_for, jsonify, current_app, g # import render_template from "public" flask libraries
 from flask_login import current_user, login_user, logout_user
@@ -7,6 +8,9 @@ from flask.cli import AppGroup
 from flask_login import current_user, login_required
 from flask import current_app
 from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
+from flask_cors import CORS
+
 
 import sqlite3
 
@@ -354,8 +358,54 @@ app.cli.add_command(custom_cli)
 @app.route("/api/events")
 def events():
     return jsonify(get_events())
-
+ 
+DATABASE = "events.db"
+FLYER_FOLDER = os.path.join(os.path.dirname(__file__), "static", "flyers")
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+ 
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+ 
+# Add this route inside your Flask app (in main.py):
+ 
+@app.route("/api/events/add", methods=["POST"])
+def add_event():
+    title       = request.form.get("title", "").strip()
+    event_date  = request.form.get("event_date", "").strip()
+    event_time  = request.form.get("event_time", "").strip()
+    location    = request.form.get("location", "").strip()
+    writeup     = request.form.get("writeup", "").strip()
+    registration = request.form.get("registration", "").strip()
+ 
+    if not title or not event_date:
+        return jsonify({"error": "Title and date are required."}), 400
+ 
+    # Handle flyer upload
+    flyer_path = ""
+    file = request.files.get("flyer")
+    if file and file.filename and allowed_file(file.filename):
+        os.makedirs(FLYER_FOLDER, exist_ok=True)
+        filename   = secure_filename(file.filename)
+        # Avoid collisions: prefix with timestamp
+        from datetime import datetime
+        timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S_")
+        filename   = timestamp + filename
+        save_path  = os.path.join(FLYER_FOLDER, filename)
+        file.save(save_path)
+        flyer_path = f"/static/flyers/{filename}"  # always stored as /static/flyers/filename 
+    # Write to events.db
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO events (name, event_date, event_time, location, writeup, flyer, registration_link)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (title, event_date, event_time, location, writeup, flyer_path, registration))
+    conn.commit()
+    conn.close()
+ 
+    return jsonify({"message": "Event saved!", "flyer": flyer_path}), 201
 # this runs the flask application on the development server
+CORS(app)
 if __name__ == "__main__":
     # change name for testing
     app.run(debug=True, host="0.0.0.0", port="8421")
