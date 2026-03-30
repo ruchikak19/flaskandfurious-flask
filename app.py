@@ -99,8 +99,29 @@ def init_blog_db():
     conn.commit()
     conn.close()
 
-# Initialize blog table on startup
+
+def init_events_db():
+    """Create the events table if it doesn't exist."""
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            event_date TEXT NOT NULL,
+            event_time TEXT NOT NULL,
+            location TEXT,
+            flyer TEXT,
+            writeup TEXT,
+            registration_link TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+# Initialize tables on startup
 init_blog_db()
+init_events_db()
 
 
 def get_events():
@@ -128,6 +149,67 @@ def events():
     return jsonify(get_events())
 
 
+# ── EVENTS API ────────────────────────────────────────────
+
+@app.route("/api/events", methods=["POST"])
+def create_event():
+    """Create a new event."""
+    name              = request.form.get("name", "")
+    event_date        = request.form.get("event_date", "")
+    event_time        = request.form.get("event_time", "")
+    location          = request.form.get("location", "")
+    flyer             = request.form.get("flyer", "")
+    writeup           = request.form.get("writeup", "")
+    registration_link = request.form.get("registration_link", "")
+
+    if not name or not event_date or not event_time:
+        return {"error": "name, event_date, and event_time are required"}, 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO events (name, event_date, event_time, location, flyer, writeup, registration_link)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (name, event_date, event_time, location, flyer, writeup, registration_link))
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+    return jsonify({"message": "Event created", "id": new_id}), 201
+
+
+@app.route("/api/events/<int:event_id>", methods=["PUT"])
+def update_event(event_id):
+    """Update an existing event."""
+    name              = request.form.get("name")
+    event_date        = request.form.get("event_date")
+    event_time        = request.form.get("event_time")
+    location          = request.form.get("location")
+    flyer             = request.form.get("flyer")
+    writeup           = request.form.get("writeup")
+    registration_link = request.form.get("registration_link")
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE events
+        SET name=?, event_date=?, event_time=?, location=?, flyer=?, writeup=?, registration_link=?
+        WHERE id=?
+    """, (name, event_date, event_time, location, flyer, writeup, registration_link, event_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Event updated"}), 200
+
+
+@app.route("/api/events/<int:event_id>", methods=["DELETE"])
+def delete_event(event_id):
+    """Delete an event."""
+    conn = get_db()
+    conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Event deleted"}), 200
+
+
 # ── BLOG API ──────────────────────────────────────────────
 
 @app.route("/api/blog", methods=["GET"])
@@ -145,7 +227,6 @@ def get_blog_posts():
     posts = []
     for row in rows:
         post = dict(row)
-        # Build image URL if image exists
         post["image_url"] = f"/api/blog/{row['id']}/image" if row["image_type"] else None
         posts.append(post)
     return jsonify(posts)

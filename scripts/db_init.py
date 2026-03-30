@@ -25,6 +25,7 @@ General Process outline:
 import shutil
 import sys
 import os
+from sqlalchemy import text
 
 # Add the directory containing main.py to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -91,9 +92,36 @@ def main():
             # Create all tables
             db.create_all()
             print("All tables created.")
-            
-            # Add default test data 
-            generate_data() # test data
+
+            # Ensure blog_posts table exists with desired schema (safe for existing DBs).
+            # Creates table if missing and adds last_edited_date if absent.
+            create_blog_sql = """
+            CREATE TABLE IF NOT EXISTS blog_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT,
+                title TEXT NOT NULL,
+                author TEXT,
+                last_edited_date TEXT,
+                read_time TEXT,
+                body TEXT,
+                image BLOB,
+                image_type TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+            with db.engine.connect() as conn:
+                conn.execute(text(create_blog_sql))
+
+                # Check columns and add last_edited_date if missing
+                pragma_rows = conn.execute(text("PRAGMA table_info(blog_posts);")).fetchall()
+                col_names = [r[1] for r in pragma_rows]  # PRAGMA returns (cid, name, type, ...)
+                if 'last_edited_date' not in col_names:
+                    conn.execute(text("ALTER TABLE blog_posts ADD COLUMN last_edited_date TEXT;"))
+                    # Set existing rows to current timestamp (optional)
+                    conn.execute(text("UPDATE blog_posts SET last_edited_date = datetime('now') WHERE last_edited_date IS NULL;"))
+
+            # Add default test data
+            generate_data()  # test data
             
     except Exception as e:
         print(f"An error occurred: {e}")
