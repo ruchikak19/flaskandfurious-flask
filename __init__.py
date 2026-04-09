@@ -80,7 +80,8 @@ JWT_TOKEN_NAME = os.environ.get('JWT_TOKEN_NAME') or 'jwt_python_flask'
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SESSION_COOKIE_NAME'] = SESSION_COOKIE_NAME
 app.config['JWT_TOKEN_NAME'] = JWT_TOKEN_NAME
-
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True  # requires HTTPS
 
 # Database settings
 IS_PRODUCTION = os.environ.get('IS_PRODUCTION') or None
