@@ -87,7 +87,8 @@ load_dotenv()
 app.config['KASM_SERVER'] = os.getenv('KASM_SERVER')
 app.config['KASM_API_KEY'] = os.getenv('KASM_API_KEY')
 app.config['KASM_API_KEY_SECRET'] = os.getenv('KASM_API_KEY_SECRET')
-
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
 
 
 # register URIs for api endpoints
