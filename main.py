@@ -406,8 +406,6 @@ def add_event():
     return jsonify({"message": "Event saved!", "flyer": flyer_path}), 201
 # this runs the flask application on the development server
 
-CORS(app, supports_credentials=True, origins=["http://localhost:4500",
-         "https://ruchikak19.github.io"])
 if __name__ == "__main__":
     # change name for testing
     app.run(debug=True, host="0.0.0.0", port="8421")
