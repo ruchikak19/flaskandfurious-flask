@@ -46,7 +46,11 @@ cors = CORS(
    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 )
 
-
+# Browser settings
+SECRET_KEY = 'your_fixed_secret_key_here'  # Use a consistent secret key
+SESSION_COOKIE_NAME = os.environ.get('SESSION_COOKIE_NAME') or 'sess_python_flask'
+JWT_TOKEN_NAME = os.environ.get('JWT_TOKEN_NAME') or 'jwt_python_flask'
+app.config['SECRET_KEY'] = SECRET_KEY
 # Admin Defaults
 app.config['ADMIN_USER'] = os.environ.get('ADMIN_USER') or 'Admin Name'
 app.config['ADMIN_UID'] = os.environ.get('ADMIN_UID') or 'admin'
