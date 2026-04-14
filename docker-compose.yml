@@ -9,4 +9,6 @@
                               - "8421:8421"
                       volumes:
                               - ./instance:/instance
+                              - ./events.db:/app/events.db      # ← ADD THIS
+                              - ./static/flyers:/app/static/flyers  # ← also add this for flyer uploads
                       restart: unless-stopped
