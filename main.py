@@ -359,7 +359,6 @@ app.cli.add_command(custom_cli)
 def events():
     return jsonify(get_events())
  
-DATABASE = "events.db"
 FLYER_FOLDER = os.path.join(os.path.dirname(__file__), "static", "flyers")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
  
