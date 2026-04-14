@@ -14,7 +14,9 @@ from flask_cors import CORS
 
 import sqlite3
 
-DATABASE = "events.db"
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE = os.path.join(BASE_DIR, "events.db")
 
 def get_events():
     conn = sqlite3.connect(DATABASE)
