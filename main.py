@@ -14,6 +14,11 @@ from flask_cors import CORS
 
 import sqlite3
 
+def get_db_connection():
+    conn = sqlite3.connect('blog.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
 import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "events.db")
@@ -158,7 +163,46 @@ def login():
 @app.route('/studytracker')  # route for the study tracker page
 def studytracker():
     return render_template("studytracker.html")
-    
+@app.route('/api/blog/posts', methods=['GET'])
+def get_blog_posts():
+    conn = get_db_connection()
+    posts = conn.execute('SELECT * FROM posts ORDER BY date_published DESC').fetchall()
+    conn.close()
+
+    return jsonify([dict(post) for post in posts])
+@app.route('/api/blog/add', methods=['POST'])
+def add_blog_post():
+    data = request.get_json()
+
+    title = data.get("title", "").strip()
+    date_published = data.get("date_published", "").strip()
+    author = data.get("author", "").strip()
+    cover_image = data.get("cover_image", "").strip()
+    writeup = data.get("writeup", "").strip()
+
+    if not title or not date_published or not author:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    conn = get_db_connection()
+    conn.execute("""
+        INSERT INTO posts (title, date_published, author, cover_image, writeup)
+        VALUES (?, ?, ?, ?, ?)
+    """, (title, date_published, author, cover_image, writeup))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Blog post added"}), 201
+@app.route('/api/blog/<int:post_id>', methods=['GET'])
+def get_blog_post(post_id):
+    conn = get_db_connection()
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+    conn.close()
+
+    if post is None:
+        return jsonify({"error": "Post not found"}), 404
+
+    return jsonify(dict(post))
 @app.route('/logout')
 def logout():
     logout_user()
