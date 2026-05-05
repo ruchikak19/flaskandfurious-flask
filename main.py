@@ -27,22 +27,21 @@ def get_events():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-
     cursor.execute("SELECT * FROM events")
     rows = cursor.fetchall()
-
     events = []
-
     for row in rows:
         events.append({
-            "title": row["name"],
-            "start": f"{row['event_date']}T{row['event_time']}",
-            "location": row["location"],
-            "flyer": row["flyer"],
-            "writeup": row["writeup"],
+            "id":           row["id"],            # <── added
+            "title":        row["name"],
+            "start":        f"{row['event_date']}T{row['event_time']}",
+            "event_date":   row["event_date"],     # <── added (flat fields for admin table)
+            "event_time":   row["event_time"],     # <── added
+            "location":     row["location"],
+            "flyer":        row["flyer"],
+            "writeup":      row["writeup"],
             "registration": row["registration_link"]
         })
-
     conn.close()
     return events
 
@@ -218,7 +217,61 @@ def index():
     print("Home:", current_user)
     return render_template("index.html")
 
-
+@app.route("/api/events/delete/<int:event_id>", methods=["DELETE"])
+def delete_event(event_id):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM events WHERE id = ?", (event_id,))
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+ 
+    if affected == 0:
+        return jsonify({"error": "Event not found"}), 404
+    return jsonify({"message": "Event deleted successfully"}), 200
+ 
+ 
+# ── 3. Update / edit a single event ──────────────────────────────────────
+@app.route("/api/events/update/<int:event_id>", methods=["PUT"])
+def update_event(event_id):
+    data = request.get_json()
+ 
+    title        = data.get("title",        "").strip()
+    event_date   = data.get("event_date",   "").strip()
+    event_time   = data.get("event_time",   "").strip()
+    location     = data.get("location",     "").strip()
+    writeup      = data.get("writeup",      "").strip()
+    registration = data.get("registration", "").strip()
+ 
+    if not title or not event_date:
+        return jsonify({"error": "Title and date are required."}), 400
+ 
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE events
+        SET name              = ?,
+            event_date        = ?,
+            event_time        = ?,
+            location          = ?,
+            writeup           = ?,
+            registration_link = ?
+        WHERE id = ?
+    """, (title, event_date, event_time, location, writeup, registration, event_id))
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+ 
+    if affected == 0:
+        return jsonify({"error": "Event not found"}), 404
+    return jsonify({"message": "Event updated successfully"}), 200
+ 
+ 
+# ── 4. Route to serve the admin event management page ─────────────────────
+@app.route('/sph/eventmgmt/')
+@login_required
+def event_management():
+    return render_template("eventmgmt.html")
 
 @app.route('/users/table2')
 @login_required
