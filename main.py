@@ -429,7 +429,7 @@ def gemini_chat():
         "but provide general guidance and encouragement. Your name is AI Assistant."
     )
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     payload = {
         "contents": [{
             "parts": [{"text": f"{system_prompt}\n\nUser question: {user_message}"}]
