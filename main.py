@@ -411,6 +411,42 @@ def delete_user_kasm(user_id):
         return {'message': 'Error connecting to KASM API', 'error': str(e)}, 500
 
 
+@app.route("/api/gemini-chat", methods=["POST"])
+def gemini_chat():
+    data = request.get_json()
+    user_message = data.get("message", "").strip()
+    if not user_message:
+        return jsonify({"error": "No message provided"}), 400
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return jsonify({"error": "Gemini API key not configured"}), 500
+
+    system_prompt = (
+        "You are a helpful, supportive AI assistant for people seeking recovery, "
+        "support, or information about domestic violence, healing, and resources. "
+        "Be empathetic, clear, and concise. Avoid giving medical or legal advice, "
+        "but provide general guidance and encouragement. Your name is AI Assistant."
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [{
+            "parts": [{"text": f"{system_prompt}\n\nUser question: {user_message}"}]
+        }]
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=15)
+        resp.raise_for_status()
+        result = resp.json()
+        reply = result["candidates"][0]["content"]["parts"][0]["text"]
+        return jsonify({"reply": reply})
+    except requests.exceptions.HTTPError as e:
+        return jsonify({"error": f"Gemini API error: {resp.status_code}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 @app.route('/update_user/<string:uid>', methods=['PUT'])
 def update_user(uid):
     # Authorization check
