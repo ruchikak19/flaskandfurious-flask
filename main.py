@@ -429,7 +429,7 @@ def gemini_chat():
         "but provide general guidance and encouragement. Your name is AI Assistant."
     )
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key={api_key}"
     payload = {
         "contents": [{
             "parts": [{"text": f"{system_prompt}\n\nUser question: {user_message}"}]
@@ -443,7 +443,11 @@ def gemini_chat():
         reply = result["candidates"][0]["content"]["parts"][0]["text"]
         return jsonify({"reply": reply})
     except requests.exceptions.HTTPError as e:
-        return jsonify({"error": f"Gemini API error: {resp.status_code}"}), 502
+        try:
+            detail = resp.json()
+        except Exception:
+            detail = resp.text
+        return jsonify({"error": f"Gemini API error {resp.status_code}", "detail": detail}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
