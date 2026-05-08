@@ -411,7 +411,7 @@ def delete_user_kasm(user_id):
         return {'message': 'Error connecting to KASM API', 'error': str(e)}, 500
 
 
-@app.route("/api/gemini-chat", methods=["POST"])
+@app.route("/api/gemini-chat/", methods=["POST"])
 def gemini_chat():
     data = request.get_json()
     user_message = data.get("message", "").strip()
